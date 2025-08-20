@@ -22,14 +22,25 @@ RUN \
     sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list; \
   else \
     echo "WARNING: Standard Debian/Ubuntu APT source files not found in expected locations."; \
-  fi && \
-  echo "INFO: Attempting to switch PGDG APT source to mirrors.tuna.tsinghua.edu.cn..." && \
+  fi 
+
+# 添加PGDG源并设置优先级，确保使用一致的版本
+RUN echo "INFO: Configuring PGDG APT source with Tsinghua mirror..." && \
+  echo "deb http://mirrors.tuna.tsinghua.edu.cn/postgresql/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+  # 添加PGDG签名密钥
+  (gpg --keyserver keyserver.ubuntu.com --recv-keys 7FCC7D46ACCC4CF8 || \
+   gpg --keyserver pgp.mit.edu --recv-keys 7FCC7D46ACCC4CF8 || \
+   gpg --keyserver keyserver.pgp.com --recv-keys 7FCC7D46ACCC4CF8) && \
+  gpg --export 7FCC7D46ACCC4CF8 | apt-key add - && \
   find /etc/apt/sources.list* -type f -name '*.list' -exec \
     sed -i 's|http://apt.postgresql.org/pub/repos/apt|http://mirrors.tuna.tsinghua.edu.cn/postgresql/repos/apt|g' {} + || \
   echo "WARNING: PGDG APT source replacement did not find a typical pgdg.list or encountered an error. Proceeding..."
 
 # 2. Install build dependencies for pg_jieba
 RUN apt-get update && \
+    # 先安装特定版本的libpq5以解决依赖冲突，允许降级
+    apt-get install -y --no-install-recommends --allow-downgrades libpq5=17.5-1.pgdg120+1 && \
+    # 然后安装其他依赖包
     apt-get install -y --no-install-recommends \
     build-essential \
     unzip \
