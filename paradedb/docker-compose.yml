@@ -1,0 +1,43 @@
+name: paradedb
+
+services:
+  paradedb:
+    image: paradedb/paradedb:0.25.0-pg17
+    container_name: paradedb
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      # 允许远程连接
+      - PG_LISTEN_ADDRESSES=*
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - paradedb_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command:
+      - "postgres"
+      - "-c"
+      - "listen_addresses=*"
+      - "-c"
+      - "shared_preload_libraries=pg_search,vector"
+    # 持久化命名卷
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  paradedb_data:
+    name: paradedb_data
